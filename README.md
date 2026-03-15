@@ -135,6 +135,27 @@ This architecture ensures:
 
 ---
 
+## 🔒 Security: Code Execution
+
+User-submitted code **must not** run on the host. This project runs code inside **ephemeral Docker containers** with strict limits:
+
+| Control | Setting | Purpose |
+|--------|---------|--------|
+| Network | `--network none` | No internet (no exfiltrating `.env` or API keys) |
+| Memory | `--memory 128m` | Prevents memory exhaustion |
+| Swap | `--memory-swap 128m` | No swap beyond limit |
+| Processes | `--pids-limit 50` | Caps fork bombs |
+| Filesystem | `--read-only` + volume `:ro` | Container cannot write; only the mounted script is readable |
+| Privileges | `--security-opt no-new-privileges` + `--cap-drop ALL` | No privilege escalation |
+
+The runner uses **Node.js 20 Alpine** inside the container. The host only mounts the single script file read-only; the container cannot see the host filesystem, `.env`, or the network.
+
+**Production:** Keep `USE_DOCKER_EXECUTION=true` (default) and ensure Docker is installed and the daemon is running.
+
+**Local dev without Docker:** Set `USE_DOCKER_EXECUTION=false` in `Backend/.env`. Code then runs on the host and is **insecure** (user code could read `.env`, delete files, etc.). Use only for development.
+
+---
+
 ## 🛠 Tech Stack
 
 ### Backend
