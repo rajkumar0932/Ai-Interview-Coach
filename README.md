@@ -165,16 +165,22 @@ This architecture ensures:
 ```
 AI_Interview_Coach
 │
-├── backend
+├── Backend
 │   ├── src
 │   │   ├── controllers
 │   │   ├── routes
 │   │   ├── services
 │   │   ├── models
 │   │   └── config
+│   ├── app.js
 │   └── index.js
 │
 ├── frontend
+│   ├── app
+│   │   ├── page.js          (problem list)
+│   │   ├── problem/[id]     (editor, run, hints, AI chat)
+│   │   └── layout.js
+│   └── lib/api.js
 │
 └── README.md
 ```
@@ -192,15 +198,47 @@ cd AI_Interview_Coach
 
 ### Install dependencies
 
+From the project root:
+
 ```bash
-npm install
+npm run install:all
 ```
 
-### Run backend server
+Or manually:
+
+```bash
+npm install
+cd Backend && npm install
+cd ../frontend && npm install
+```
+
+### Environment (optional)
+
+- Copy `Backend/.env.example` to `Backend/.env` and set `PORT`, `CORS_ORIGIN` if needed.
+- Add `OPENAI_API_KEY` for AI-powered interviewer replies (otherwise built-in prompts are used).
+
+### Run the app
+
+**Option 1 – run both backend and frontend together (from root):**
 
 ```bash
 npm run dev
 ```
+
+- Backend: http://localhost:5000  
+- Frontend: http://localhost:3000 (proxies API to backend)
+
+**Option 2 – run separately:**
+
+```bash
+# Terminal 1 – backend
+npm run dev:backend
+
+# Terminal 2 – frontend
+npm run dev:frontend
+```
+
+Then open http://localhost:3000 in your browser.
 
 ---
 
