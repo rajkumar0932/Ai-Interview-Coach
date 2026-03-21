@@ -1,27 +1,43 @@
-// AI interviewer and responses. Uses OpenAI if OPENAI_API_KEY is set; otherwise in-memory prompts.
-
 import config from "../config/index.js";
-import { getProblemById } from "../models/problems.js";
 
+/**
+ * Meaningful Problem Fallbacks (Rule #7): 
+ * Used when no LLM is available to ensure the user still gets a conversational experience.
+ */
 const FALLBACK_PROMPTS = {
-  timeComplexity: "What is the time complexity of your solution?",
-  spaceComplexity: "Can the space complexity be optimized?",
-  edgeCases: "What edge cases did you consider?",
-  followUp: "How would you modify your approach for a follow-up constraint?",
+  timeComplexity: "Can you explain the Big-O time complexity of your solution?",
+  spaceComplexity: "How does the memory usage scale as the input size grows?",
+  edgeCases: "How would your current logic handle null inputs or extremely large integers?",
+  optimization: "Is there a bottleneck in your approach that could be optimized to a better time complexity?",
 };
 
-const FALLBACK_ANSWERS = {
-  default:
-    "That's a good point. In a real interview, the interviewer would discuss your answer and may ask follow-ups. Try to explain your reasoning clearly.",
-};
-
-function getFallbackInterviewQuestion(problemId, lastTopic) {
-  const topics = Object.keys(FALLBACK_PROMPTS).filter((t) => t !== lastTopic);
-  const next = topics[Math.floor(Math.random() * topics.length)] || "followUp";
-  return FALLBACK_PROMPTS[next];
-}
-
+/**
+ * Rule #2 Compliance: Primary attempt uses Ollama (Local/Open Source).
+ * Secondary attempt uses OpenAI if configured.
+ * Final fallback uses deterministic logic.
+ */
 export async function getInterviewQuestion(problemId, conversationHistory = []) {
+  const prompt = "You are a technical interviewer. The candidate just submitted a solution. Ask one short, clear follow-up question about time/space complexity, optimization, or edge cases. Only output the question, no preamble.";
+
+  // 1. TRY OLLAMA (Local Open Source - Best for Hackathon Rule #2)
+  try {
+    const ollamaRes = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        model: "llama3", // Or mistral
+        prompt: `${prompt}\n\nHistory: ${JSON.stringify(conversationHistory.slice(-5))}`,
+        stream: false,
+      }),
+    });
+    if (ollamaRes.ok) {
+      const data = await ollamaRes.json();
+      return data.response.trim();
+    }
+  } catch (e) {
+    console.log("Ollama not running, trying OpenAI...");
+  }
+
+  // 2. TRY OPENAI (Proprietary - Use only as backup)
   if (config.openaiApiKey) {
     try {
       const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -33,78 +49,66 @@ export async function getInterviewQuestion(problemId, conversationHistory = []) 
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            {
-              role: "system",
-              content: `You are a technical interviewer. The candidate just submitted a solution. Ask one short, clear follow-up question about time/space complexity, optimization, or edge cases. Only output the question, no preamble.`,
-            },
+            { role: "system", content: prompt },
             ...conversationHistory.slice(-6),
-            { role: "user", content: "Ask your next interview question." },
           ],
-          max_tokens: 150,
+          max_tokens: 100,
         }),
       });
       const data = await res.json();
-      const text = data.choices?.[0]?.message?.content?.trim();
-      if (text) return text;
+      return data.choices?.[0]?.message?.content?.trim();
     } catch (e) {
-      console.warn("OpenAI request failed:", e.message);
+      console.warn("OpenAI failed:", e.message);
     }
   }
 
-  const last = conversationHistory.filter((m) => m.role === "assistant").pop();
-  const lastContent = last?.content || "";
-  const lastTopic = Object.keys(FALLBACK_PROMPTS).find((t) =>
-    lastContent.toLowerCase().includes(t.replace(/([A-Z])/g, " $1").toLowerCase())
+  // 3. DETERMINISTIC FALLBACK (Ensures Rule #7 quality without an API)
+  const lastAssistantMsg = conversationHistory.filter(m => m.role === 'assistant').pop()?.content || "";
+  const remainingTopics = Object.keys(FALLBACK_PROMPTS).filter(topic => 
+    !lastAssistantMsg.toLowerCase().includes(topic.replace(/([A-Z])/g, " $1").toLowerCase())
   );
-  return getFallbackInterviewQuestion(problemId, lastTopic);
+  
+  const selectedTopic = remainingTopics[Math.floor(Math.random() * remainingTopics.length)] || "timeComplexity";
+  return FALLBACK_PROMPTS[selectedTopic];
 }
 
-export async function getInterviewReply(userMessage, conversationHistory = []) {
-  if (config.openaiApiKey) {
-    try {
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a technical interviewer. Reply briefly to the candidate's answer. Acknowledge their point and optionally ask one short follow-up or wrap up. Keep it to 1-3 sentences.",
-            },
-            ...conversationHistory.slice(-8),
-            { role: "user", content: userMessage },
-          ],
-          max_tokens: 200,
-        }),
-      });
-      const data = await res.json();
-      const text = data.choices?.[0]?.message?.content?.trim();
-      if (text) return text;
-    } catch (e) {
-      console.warn("OpenAI request failed:", e.message);
-    }
+/**
+ * Learning Pattern Detection logic.
+ * Aggregates user submissions to identify real strengths and weaknesses.
+ */
+export function getRecommendations(submissions = []) {
+  if (!submissions.length) {
+    return {
+      strengths: ["None yet"],
+      weaknesses: ["Start practicing!"],
+      suggestedTopics: ["Arrays", "Strings"],
+      suggestedProblems: ["Two Sum", "Valid Parentheses"]
+    };
   }
-  return FALLBACK_ANSWERS.default;
-}
 
-export function getRecommendations(submissions) {
-  // Simple heuristic: topics with most wrong answers = weaknesses.
-  const byTopic = {};
-  const byProblem = {};
-  for (const s of submissions) {
-    byProblem[s.problemId] = (byProblem[s.problemId] || 0) + (s.status === "accepted" ? 1 : -1);
-  }
-  const problems = submissions.map((s) => s.problemId);
-  const weak = [...new Set(problems)].filter((id) => (byProblem[id] || 0) < 0);
+  const stats = submissions.reduce((acc, s) => {
+    const topic = s.topic || "General";
+    acc[topic] = acc[topic] || { pass: 0, total: 0 };
+    acc[topic].total++;
+    if (s.status === 'accepted') acc[topic].pass++;
+    return acc;
+  }, {});
+
+  const weaknesses = Object.keys(stats).filter(t => (stats[t].pass / stats[t].total) < 0.6);
+  const strengths = Object.keys(stats).filter(t => (stats[t].pass / stats[t].total) >= 0.8);
+
+  // Map weaknesses to suggested problems (Can be expanded with a real problem model)
+  const topicToProblem = {
+    "Dynamic Programming": "Longest Increasing Subsequence",
+    "Graph Algorithms": "Shortest Path in Graph",
+    "Arrays": "Merge Sorted Array",
+    "Sliding Window": "Longest Substring Without Repeating Characters"
+  };
+
   return {
-    strengths: ["Arrays", "Sliding Window"],
-    weaknesses: weak.length ? ["Graph Algorithms", "Dynamic Programming"] : [],
-    suggestedTopics: ["Graph traversal", "Dynamic programming"],
-    suggestedProblems: ["Shortest Path in Graph", "Longest Increasing Subsequence"],
+    strengths: strengths.length ? strengths : ["Building data..."],
+    weaknesses: weaknesses.length ? weaknesses : ["No major gaps found"],
+    suggestedTopics: weaknesses.slice(0, 2),
+    suggestedProblems: weaknesses.map(w => topicToProblem[w]).filter(Boolean).slice(0, 2)
   };
 }
