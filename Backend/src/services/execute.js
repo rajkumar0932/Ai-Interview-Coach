@@ -3,8 +3,8 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import config from "../config/index.js";
+import { getProblemById } from "../models/problems.js";
 
-// Helper to wrap user code with test cases and standardized JSON output
 const HELPERS = `
 function __runTests(fn, cases) {
   const results = [];
@@ -21,34 +21,6 @@ function __runTests(fn, cases) {
 }
 `;
 
-const problemRunners = {
-  "1": {
-    fnName: "twoSum",
-    cases: [
-      { name: "Example 1", input: [[2, 7, 11, 15], 9], expected: [0, 1] },
-      { name: "Example 2", input: [[3, 2, 4], 6], expected: [1, 2] },
-      { name: "Two same", input: [[3, 3], 6], expected: [0, 1] },
-    ],
-  },
-  "2": {
-    fnName: "isValid",
-    cases: [
-      { name: "Simple", input: ["()"], expected: true },
-      { name: "Multiple", input: ["()[]{}"], expected: true },
-      { name: "Invalid", input: ["(]"], expected: false },
-      { name: "Nested", input: ["([)]"], expected: false },
-    ],
-  },
-  "3": {
-    fnName: "lengthOfLongestSubstring",
-    cases: [
-      { name: "Example 1", input: ["abcabcbb"], expected: 3 },
-      { name: "Example 2", input: ["bbbbb"], expected: 1 },
-      { name: "Example 3", input: ["pwwkew"], expected: 3 },
-    ],
-  },
-};
-
 function parseExecutionResult(stdout, stderr, runtimeMs, timedOut) {
   if (timedOut) {
     return {
@@ -61,6 +33,15 @@ function parseExecutionResult(stdout, stderr, runtimeMs, timedOut) {
   }
   try {
     const parsed = JSON.parse(stdout.trim());
+    if (parsed.error) {
+      return {
+        status: "error",
+        stdout,
+        stderr: parsed.error,
+        runtimeMs,
+        results: null,
+      };
+    }
     const results = parsed.results || [];
     const allPass = results.every((r) => r.pass);
     return {
@@ -157,18 +138,20 @@ async function runCodeInProcess(wrappedCode, startTime) {
   });
 }
 
-export async function runCode(code, problemId, testCases) {
-  const runner = problemRunners[problemId] || {
-    fnName: "solution",
-    cases: Array.isArray(testCases) && testCases.length ? testCases : [{ name: "Sample", input: [], expected: null }],
-  };
+export async function runCode(code, problemId) {
+  const problem = getProblemById(problemId);
+  const fnName = problem?.fnName || "solution";
+  const testCases = problem?.testCases || [];
 
+  // FIXED: Pass the correct function name to the wrapper
   const wrapped = `
 ${HELPERS}
 ${code}
-const results = __runTests(${runner.fnName}, ${JSON.stringify(runner.cases)});
-console.log(JSON.stringify({ results }));
-`;
+if (typeof ${fnName} !== 'function') {
+  console.log(JSON.stringify({ error: "Function ${fnName} not found" }));
+} else {
+  console.log(JSON.stringify({ results: __runTests(${fnName}, ${JSON.stringify(testCases)}) }));
+}`;
 
   const start = Date.now();
 

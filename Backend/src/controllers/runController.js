@@ -4,14 +4,14 @@ import { getProblemById } from "../models/problems.js";
 
 export async function run(req, res) {
   try {
-    const { code, problemId, testCases } = req.body;
+    const { code, problemId } = req.body;
     if (!code || !problemId) {
       return res.status(400).json({ error: "code and problemId are required" });
     }
     if (!getProblemById(problemId)) {
       return res.status(404).json({ error: "Problem not found" });
     }
-    const result = await runCode(code, problemId, testCases);
+    const result = await runCode(code, problemId);
     const submission = createSubmission({
       problemId,
       userId: req.body.userId || "anonymous",

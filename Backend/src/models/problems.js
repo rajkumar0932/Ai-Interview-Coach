@@ -40,6 +40,12 @@ function twoSum(nums, target) {
       "Try using a hash map to store complements (target - nums[i]).",
     ],
     solutionSnippet: "Use a Map: for each num, check if (target - num) exists in the map; else store num -> index.",
+    fnName: "twoSum",
+    testCases: [
+      { name: "Example 1", input: [[2, 7, 11, 15], 9], expected: [0, 1] },
+      { name: "Example 2", input: [[3, 2, 4], 6], expected: [1, 2] },
+      { name: "Two same", input: [[3, 3], 6], expected: [0, 1] },
+    ],
   },
   {
     id: "2",
@@ -69,6 +75,13 @@ function isValid(s) {
       "Handle edge case: empty string and odd length.",
     ],
     solutionSnippet: "Use a stack: push opening brackets, pop and match on closing; check stack empty at end.",
+    fnName: "isValid",
+    testCases: [
+      { name: "Simple", input: ["()"], expected: true },
+      { name: "Multiple", input: ["()[]{}"], expected: true },
+      { name: "Invalid", input: ["(]"], expected: false },
+      { name: "Nested", input: ["([)]"], expected: false },
+    ],
   },
   {
     id: "3",
@@ -94,6 +107,12 @@ function lengthOfLongestSubstring(s) {
       "A hash set plus two pointers (sliding window) works well.",
     ],
     solutionSnippet: "Sliding window with a Set; when char repeats, move left until duplicate is removed.",
+    fnName: "lengthOfLongestSubstring",
+    testCases: [
+      { name: "Example 1", input: ["abcabcbb"], expected: 3 },
+      { name: "Example 2", input: ["bbbbb"], expected: 1 },
+      { name: "Example 3", input: ["pwwkew"], expected: 3 },
+    ],
   },
 ];
 

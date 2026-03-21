@@ -72,10 +72,56 @@ export async function getInterviewQuestion(problemId, conversationHistory = []) 
   return FALLBACK_PROMPTS[selectedTopic];
 }
 
-/**
- * Learning Pattern Detection logic.
- * Aggregates user submissions to identify real strengths and weaknesses.
- */
+export async function getInterviewReply(message, conversationHistory = []) {
+  const prompt = "You are a technical interviewer. Respond to the candidate's message in a conversational, helpful way. Keep responses concise and focused on coding interview topics.";
+
+  // 1. TRY OLLAMA (Local Open Source - Best for Hackathon Rule #2)
+  try {
+    const ollamaRes = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        model: "llama3", // Or mistral
+        prompt: `${prompt}\n\nUser: ${message}\n\nHistory: ${JSON.stringify(conversationHistory.slice(-5))}`,
+        stream: false,
+      }),
+    });
+    if (ollamaRes.ok) {
+      const data = await ollamaRes.json();
+      return data.response.trim();
+    }
+  } catch (e) {
+    console.log("Ollama not running, trying OpenAI...");
+  }
+
+  // 2. TRY OPENAI (Proprietary - Use only as backup)
+  if (config.openaiApiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: prompt },
+            ...conversationHistory.slice(-6),
+            { role: "user", content: message },
+          ],
+          max_tokens: 150,
+        }),
+      });
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content?.trim();
+    } catch (e) {
+      console.warn("OpenAI failed:", e.message);
+    }
+  }
+
+  // 3. DETERMINISTIC FALLBACK (Ensures Rule #7 quality without an API)
+  return "That's a good point! Can you elaborate on your approach to handling edge cases in this problem?";
+}
 export function getRecommendations(submissions = []) {
   if (!submissions.length) {
     return {
