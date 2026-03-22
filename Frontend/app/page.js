@@ -1,41 +1,112 @@
 "use client";
 
 import Link from "next/link";
-import HeroMockup from "@/components/HeroMockup";
+import { motion } from "framer-motion";
 import styles from "./landing.module.css";
 
 export default function Home() {
   return (
     <>
       <section className={styles.hero}>
-        <div className={styles.heroGrid}>
-          <div className={styles.heroContent}>
-            <div className={styles.heroBadge}>
-              <span className={styles.heroBadgeIcon}>&#9654;</span>
-              AI powered practice
+        <div className={styles.heroSplit}>
+          <motion.div
+            className={styles.problemSide}
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className={styles.problemTitle}>The Black Box</h2>
+            <p className={styles.problemText}>
+              You know you failed, but you don't know why. Traditional platforms give you red "Wrong Answer" screens with cryptic messages.
+            </p>
+            <div className={styles.problemVisual}>
+              <div className={styles.errorScreen}>
+                <div className={styles.errorIcon}>❌</div>
+                <div className={styles.errorText}>Wrong Answer</div>
+                <div className={styles.errorDetails}>Test case #2 failed</div>
+              </div>
             </div>
-            <h1 className={styles.heroTitle}>
-              Fast. Focused. Interview-ready.
-              <span className={styles.heroTitleAccent}> AI, done right for coding interviews.</span>
-            </h1>
-          <p className={styles.heroSubtitle}>
-            From instant problem setup to real-time runs and AI follow-ups—practice like the real thing,
-            with hints that teach and feedback that sticks.
-          </p>
-          <div className={styles.heroCta}>
-            <Link href="/signup" className={styles.ctaPrimary}>
-              Get started free
-            </Link>
-            <Link href="/problems" className={styles.ctaSecondary}>
-              Browse problems
-            </Link>
-          </div>
-          </div>
-          <div className={styles.heroMockupWrap}>
-            <HeroMockup />
-          </div>
+          </motion.div>
+
+          <motion.div
+            className={styles.solutionSide}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <h2 className={styles.solutionTitle}>The Bridge</h2>
+            <p className={styles.solutionText}>
+              Real-time dialogue that uncovers your logical gaps. AI interviewer asks follow-up questions on complexity and edge cases.
+            </p>
+            <div className={styles.solutionVisual}>
+              <div className={styles.chatBubble}>
+                <div className={styles.aiAvatar}>🤖</div>
+                <div className={styles.chatContent}>
+                  <div className={styles.chatHeader}>AI Interviewer</div>
+                  <div className={styles.chatMessage}>
+                    "What's the time complexity of your solution? Can you optimize it further?"
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
-        <div className={styles.heroBg} aria-hidden />
+
+        <motion.div
+          className={styles.heroCta}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+        >
+          <Link href="/signup" className={styles.ctaPrimary}>
+            Start Practicing Now
+          </Link>
+          <Link href="/problems" className={styles.ctaSecondary}>
+            Browse Problems
+          </Link>
+        </motion.div>
+      </section>
+
+      <section className={styles.architecture}>
+        <h2 className={styles.sectionTitle}>Secure by Design</h2>
+        <p className={styles.sectionSubtitle}>Your code stays on your machine. AI runs locally.</p>
+        <div className={styles.archDiagram}>
+          <motion.div
+            className={styles.archCard}
+            whileHover={{ y: -10 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <div className={styles.cardIcon}>💻</div>
+            <h3>Next.js Client</h3>
+            <p>Modern React interface with Monaco editor</p>
+          </motion.div>
+
+          <motion.div
+            className={styles.archCard}
+            whileHover={{ y: -10 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <div className={styles.cardIcon}>🐳</div>
+            <h3>Docker Sandbox</h3>
+            <p>100% isolated execution environment</p>
+          </motion.div>
+
+          <motion.div
+            className={styles.archCard}
+            whileHover={{ y: -10 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <div className={styles.cardIcon}>🤖</div>
+            <h3>Ollama AI</h3>
+            <p>Local AI interviewer, no data leaves your device</p>
+          </motion.div>
+        </div>
       </section>
 
       <section className={styles.features}>

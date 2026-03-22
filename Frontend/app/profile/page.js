@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getProfileStats } from "@/lib/api";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
 import styles from "./page.module.css";
 
 export default function ProfilePage() {
@@ -45,6 +46,16 @@ export default function ProfilePage() {
     stats.totalSubmissions > 0
       ? Math.round((stats.acceptedCount / stats.totalSubmissions) * 100)
       : 0;
+
+  // Prepare radar chart data
+  const radarData = [
+    { topic: "Problem Solving", score: stats.problemsSolved > 0 ? Math.min(stats.problemsSolved * 10, 100) : 0 },
+    { topic: "Arrays", score: stats.strengths.find(s => s.topic === "Arrays")?.acceptanceRate || 0 },
+    { topic: "Stack", score: stats.strengths.find(s => s.topic === "Stack")?.acceptanceRate || 0 },
+    { topic: "Sliding Window", score: stats.strengths.find(s => s.topic === "Sliding Window")?.acceptanceRate || 0 },
+    { topic: "Communication", score: Math.max(0, 100 - (stats.weaknesses.length * 20)) },
+    { topic: "Time Complexity", score: Math.max(0, 100 - (stats.weaknesses.length * 15)) },
+  ];
 
   // Heatmap: last 84 days (12 weeks). Grid: 7 rows (Sun–Sat) × 12 cols (weeks). Column 0 = oldest week.
   const heatmapDays = [];
@@ -88,57 +99,33 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <div className={styles.twoCol}>
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Strengths</h2>
-          <p className={styles.sectionSubtitle}>Topics with strong performance</p>
-          {stats.strengths.length === 0 ? (
-            <p className={styles.empty}>Solve problems to see strengths.</p>
-          ) : (
-            <div className={styles.barList}>
-              {stats.strengths.map((t) => (
-                <div key={t.topic} className={styles.barItem}>
-                  <div className={styles.barLabel}>
-                    <span>{t.topic}</span>
-                    <span className={styles.barPct}>{t.acceptanceRate}%</span>
-                  </div>
-                  <div className={styles.barTrack}>
-                    <div
-                      className={styles.barFillStrength}
-                      style={{ width: `${t.acceptanceRate}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Areas to improve</h2>
-          <p className={styles.sectionSubtitle}>Topics to practice more</p>
-          {stats.weaknesses.length === 0 ? (
-            <p className={styles.empty}>Keep practicing to find focus areas.</p>
-          ) : (
-            <div className={styles.barList}>
-              {stats.weaknesses.map((t) => (
-                <div key={t.topic} className={styles.barItem}>
-                  <div className={styles.barLabel}>
-                    <span>{t.topic}</span>
-                    <span className={styles.barPct}>{t.acceptanceRate}%</span>
-                  </div>
-                  <div className={styles.barTrack}>
-                    <div
-                      className={styles.barFillWeak}
-                      style={{ width: `${Math.min(t.acceptanceRate + 10, 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Learning Pattern Analysis</h2>
+        <p className={styles.sectionSubtitle}>Your coding interview readiness radar</p>
+        <div className={styles.radarContainer}>
+          <ResponsiveContainer width="100%" height={400}>
+            <RadarChart data={radarData}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="topic" />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} />
+              <Radar
+                name="Score"
+                dataKey="score"
+                stroke="#22d3ee"
+                fill="#22d3ee"
+                fillOpacity={0.3}
+                strokeWidth={2}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className={styles.radarLegend}>
+          <div className={styles.legendItem}>
+            <span className={styles.legendColor} style={{ background: "#22d3ee" }}></span>
+            <span>Current Performance</span>
+          </div>
+        </div>
+      </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Activity heatmap</h2>

@@ -5,6 +5,9 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/context/AuthContext";
+import Editor from "@monaco-editor/react";
+import SplitPane from "react-split-pane";
+import { motion } from "framer-motion";
 import {
   getProblem,
   runCode,
@@ -20,6 +23,7 @@ export default function ProblemPage() {
   const id = params?.id;
   const [problem, setProblem] = useState(null);
   const [code, setCode] = useState("");
+  const [language, setLanguage] = useState("javascript");
   const [runResult, setRunResult] = useState(null);
   const [running, setRunning] = useState(false);
   const [hintIndex, setHintIndex] = useState(-1);
@@ -27,7 +31,8 @@ export default function ProblemPage() {
   const [chat, setChat] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [sendingChat, setSendingChat] = useState(false);
-  const [showInterview, setShowInterview] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState(null);
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +43,22 @@ export default function ProblemPage() {
       })
       .catch(() => setProblem(null));
   }, [id]);
+
+  // Voice recognition setup
+  useEffect(() => {
+    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+      const rec = new window.webkitSpeechRecognition();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = "en-US";
+      rec.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setChatInput((prev) => prev + transcript);
+      };
+      rec.onend = () => setIsListening(false);
+      setRecognition(rec);
+    }
+  }, []);
 
   const handleRun = useCallback(async () => {
     if (!id || !code) return;
@@ -92,6 +113,9 @@ export default function ProblemPage() {
         role: m.role,
         content: m.content,
       }));
+      // Include current code for code-aware chat
+      const codeContext = `Current code:\n${code}`;
+      history.push({ role: "system", content: codeContext });
       const { reply } = await getInterviewReply(msg, history);
       setChat((c) => [...c, { role: "assistant", content: reply }]);
     } catch (e) {
@@ -102,7 +126,14 @@ export default function ProblemPage() {
     } finally {
       setSendingChat(false);
     }
-  }, [chat, chatInput, sendingChat]);
+  const toggleVoice = () => {
+    if (isListening) {
+      recognition?.stop();
+    } else {
+      recognition?.start();
+      setIsListening(true);
+    }
+  };
 
   if (!problem) {
     return (
@@ -130,7 +161,7 @@ export default function ProblemPage() {
         <span className={styles.topic}>{problem.topic}</span>
       </nav>
 
-      <div className={styles.grid}>
+      <SplitPane split="vertical" defaultSize="50%" className={styles.splitPane}>
         <div className={styles.panel}>
           <h1 className={styles.title}>{problem.title}</h1>
           <div className={styles.description}>
@@ -139,35 +170,61 @@ export default function ProblemPage() {
         </div>
 
         <div className={styles.editorPanel}>
-          <div className={styles.editorHeader}>Solution (JavaScript)</div>
-          <textarea
-            className={styles.editor}
+          <div className={styles.editorHeader}>
+            Solution
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className={styles.languageSelect}
+            >
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="java">Java</option>
+            </select>
+          </div>
+          <Editor
+            height="400px"
+            language={language}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
-            spellCheck={false}
+            onChange={setCode}
+            theme="vs-dark"
+            options={{
+              minimap: { enabled: false },
+              fontSize: 14,
+              lineNumbers: "on",
+              roundedSelection: false,
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+            }}
           />
           <div className={styles.actions}>
-            <button
+            <motion.button
               className={styles.runBtn}
               onClick={handleRun}
               disabled={running}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              {running ? "Running..." : "Run & Submit"}
-            </button>
-            <button
+              {running ? "Running..." : "Run & Submit (Ctrl+Enter)"}
+            </motion.button>
+            <motion.button
               className={styles.hintBtn}
               onClick={requestHint}
               type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Get Hint {hintIndex >= 0 ? `(${hintIndex + 1})` : ""}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               className={styles.interviewBtn}
               onClick={startInterview}
               disabled={chat.length > 0}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Start AI Interview
-            </button>
+            </motion.button>
           </div>
 
           {runResult && (
@@ -216,18 +273,31 @@ export default function ProblemPage() {
 
           {showInterview && (
             <div className={styles.chat}>
-              <h3>AI Interviewer</h3>
+              <h3>AI Interviewer <span className={styles.aiStatus}>● Local AI: Active</span></h3>
               <div className={styles.chatMessages}>
                 {chat.map((m, i) => (
-                  <div
+                  <motion.div
                     key={i}
                     className={
                       m.role === "user" ? styles.chatUser : styles.chatBot
                     }
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
                   >
                     {m.content}
-                  </div>
+                  </motion.div>
                 ))}
+                {sendingChat && (
+                  <div className={styles.chatBot}>
+                    <div className={styles.typingIndicator}>
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    The Interviewer is thinking...
+                  </div>
+                )}
               </div>
               <div className={styles.chatInputRow}>
                 <input
@@ -237,13 +307,26 @@ export default function ProblemPage() {
                   onKeyDown={(e) => e.key === "Enter" && sendChat()}
                   placeholder="Type your answer..."
                   className={styles.chatInput}
+                  aria-label="Chat input"
                 />
-                <button
+                <motion.button
+                  onClick={toggleVoice}
+                  className={`${styles.voiceBtn} ${isListening ? styles.listening : ""}`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                >
+                  🎤
+                </motion.button>
+                <motion.button
                   onClick={sendChat}
                   disabled={sendingChat || !chatInput.trim()}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Send message"
                 >
                   Send
-                </button>
+                </motion.button>
               </div>
             </div>
           )}
